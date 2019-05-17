@@ -1,84 +1,105 @@
 import os, datetime
+
 import discord
 from discord.ext import commands
-# Move inside v
 
-class khaaliStats(discord.Client):
+from mongo import guild
 
-  def init(self, prefix='!'):
-    self.PREFIX = prefix
+class khaaliStats(commands.Cog):
+  ''' TODO '''
 
-  ''' Events '''
+PREFIX = '!'
+bot = commands.Bot(command_prefix=PREFIX)
+bot.remove_command('help')
 
-  async def on_ready(self):
-    act = discord.Activity()
-    act.type = discord.ActivityType.watching
-    act.name = 'who comes here'
-    await bot.change_presence(activity=act)
-    print('Mein bhi Chowkidaar')
+@bot.event
+async def on_ready():
+  act = discord.Activity()
+  act.type = discord.ActivityType.streaming
+  act.name = 'statistics'
+  await bot.change_presence(activity=act)
+  print('Mein bhi Chowkidaar')
 
-  async def on_message(self, msg):
-    pass
+@bot.event
+async def on_message(msg):
+  ctx = await bot.get_context(msg)
+  print(ctx.__dict__)
+  pass
 
-  async def on_member_join(self, mem):
-    pass
+@bot.event
+async def on_member_join(mem):
+  pass
 
-  async def on_member_remove(self, mem):
-    pass
+@bot.event
+async def on_member_remove(mem):
+  pass
 
-  async def on_guild_role_create(self, role):
-    pass
+@bot.event
+async def on_guild_role_create(role):
+  pass
 
-  async def on_guild_role_delete(self, role):
-    pass  
+@bot.event
+async def on_guild_role_delete(role):
+  pass  
 
-  async def on_guild_role_update(self, before, after):
-    pass
+@bot.event
+async def on_guild_role_update(before, after):
+  pass
 
-  async def on_member_ban(self, guild, mem):
-    pass
+@bot.event
+async def on_member_ban(guild, mem):
+  pass
 
-  async def on_member_unban(self, guild, mem):
-    pass
+@bot.event
+async def on_member_unban(guild, mem):
+  pass
 
-  async def on_guild_update(self, before, after):
-    pass
+@bot.event
+async def on_guild_update(before, after):
+  pass
 
-  async def on_webhooks_update(self, channel):
-    pass
-  
-  async def on_guild_integrations_update(self, guild):
-    pass
+@bot.event
+async def on_webhooks_update(channel):
+  pass
 
-  async def on_guild_channel_delete(self, channel):
-    pass
-  
-  async def on_guild_channel_create(self, channel):
-    pass
+@bot.event
+async def on_guild_integrations_update(guild):
+  pass
 
-  async def on_guild_channel_update(self, before, after):
-    pass
+@bot.event
+async def on_guild_channel_delete(channel):
+  pass
 
-  ''' Commands '''
+@bot.event
+async def on_guild_channel_create(channel):
+  pass
 
-  async def members(ctx):
-    pass
-  
-  async def channels(ctx):
-    pass
-  
-  async def roles(ctx):
-    pass
-  
-  async def all(ctx):
-    pass
+@bot.event
+async def on_guild_channel_update(before, after):
+  pass
 
-  async def help(ctx):
-    pass
-  
+
+@bot.command(pass_context=True)
+async def members(ctx, *args):
+  pass
+
+@bot.command(pass_context=True)
+async def channels(ctx, *args):
+  pass
+
+@bot.command(pass_context=True)
+async def roles(ctx, *args):
+  pass
+
+@bot.command(pass_context=True)
+async def all(ctx, *args):
+  pass
+
+@bot.command(pass_context=True)
+async def help(ctx):
+  pass
 
 
 if __name__=='__main__':
-  if not os.environ.get('KHAALI_STATS'): exit('token not found')
-  bot = khaaliStats()
+  if not os.environ.get('KHAALI_STATS'): exit('token not found')  
   bot.run(os.environ['KHAALI_STATS'])
