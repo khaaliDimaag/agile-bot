@@ -1,12 +1,12 @@
 import os
-import logging # TODO
+# TODO import logging 
 
 import discord
 from discord.ext import commands
 
-from reply import setup as reply_cog
-# from stats import setup as stats_cog
-# from scrum import setup as scrum_cog
+from cogs.reply import setup as reply_cog
+from cogs.stats import setup as stats_cog
+from cogs.scrum import setup as scrum_cog
 
 def get_prefix(bot, msg):
   prefixes = ['?!', 'bot ', '>']
@@ -32,6 +32,6 @@ async def on_message(msg):
 if __name__=='__main__':
   if not os.environ.get('KHAALI_BOT'): exit('token not found')  
   reply_cog(bot)
-  # stats_cog(bot)
-  # scrum_cog(bot)
+  stats_cog(bot)
+  scrum_cog(bot)
   bot.run(os.environ['KHAALI_BOT'])

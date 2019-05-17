@@ -34,7 +34,7 @@ class khaaliReply(commands.Cog):
         em.add_field(name=command, value=usage[command])
       await ctx.message.channel.send(embed=em)
 
-  @commands.command(name='reply')
+  @commands.command()
   async def reply(self, ctx, *args):
     reply_to_id = ctx.message.content.split()[0][1:]; em = None
     try: 
@@ -73,5 +73,4 @@ class khaaliReply(commands.Cog):
     em.set_footer(text='Click the links to jump to the messages')
     return em
 
-def setup(bot):
-  bot.add_cog(khaaliReply(bot))
+def setup(bot): bot.add_cog(khaaliReply(bot))
