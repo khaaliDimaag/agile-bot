@@ -1,4 +1,5 @@
 import os
+import pprint
 # TODO import logging 
 
 import discord
@@ -31,7 +32,7 @@ async def on_message(msg):
 
 if __name__=='__main__':
   if not os.environ.get('KHAALI_BOT'): exit('token not found')  
-  reply_cog(bot)
+  # reply_cog(bot)
   stats_cog(bot)
-  scrum_cog(bot)
+  # scrum_cog(bot)
   bot.run(os.environ['KHAALI_BOT'])

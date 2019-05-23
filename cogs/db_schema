@@ -1,14 +1,13 @@
-import pymongo, bson
-
-from pymongo import MongoClient
-client = MongoClient()
-
-''' [DB] khaaliDiscord:
+[DB] khaaliDiscord:
 [Collection] members: {
   name: str,
   handle: str,
-  joined: date,
+  nick: str,
+  created: date,
+  joined_first: date,
   left: date,
+  rejoined: date,
+  roles: [],
   bot: boolean
 }
 [Collection] channels: {
@@ -18,12 +17,19 @@ client = MongoClient()
 }
 [Collection] roles: {
   name: str,
-  purpose: str
+  purpose: str,
+  value: int,
+  perms: []
 }
-'''
-guild = client['khaaliDiscord']
+[Collection] guilds: {
+  name: str,
+  id: int,
+  owner_id: int,
+  stats_chan_id: int
+}
 
-''' [DB] khaaliProjects:
+
+[DB] khaaliProjects:
 [Collection] projects: {
   name: str,
   repo: url,
@@ -52,5 +58,3 @@ guild = client['khaaliDiscord']
   incomplete: [],
   review: str
 }
-'''
-projects = client['khaaliProjects']

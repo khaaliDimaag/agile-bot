@@ -71,6 +71,7 @@ class khaaliReply(commands.Cog):
 
     em.add_field(name='Reply',value='[{0}]({1.jump_url})'.format(reply_msg,reply),inline=False)
     em.set_footer(text='Click the links to jump to the messages')
+    em.set_author(name='khaaliReply',url='https://khaalidimaag.io/discord/khaaliReply')
     return em
 
 def setup(bot): bot.add_cog(khaaliReply(bot))
