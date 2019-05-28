@@ -1,34 +1,3 @@
-[DB] khaaliDiscord:
-[Collection] members: {
-  name: str,
-  handle: str,
-  nick: str,
-  created: date,
-  joined_first: date,
-  left: date,
-  rejoined: date,
-  roles: [],
-  bot: boolean
-}
-[Collection] channels: {
-  name: str,
-  purpose: str,
-  private: boolean
-}
-[Collection] roles: {
-  name: str,
-  purpose: str,
-  value: int,
-  perms: []
-}
-[Collection] guilds: {
-  name: str,
-  id: int,
-  owner_id: int,
-  stats_chan_id: int
-}
-
-
 [DB] khaaliProjects:
 [Collection] projects: {
   name: str,
