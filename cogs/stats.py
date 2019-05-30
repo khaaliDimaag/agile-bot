@@ -5,6 +5,8 @@ import pprint
 import discord
 from discord.ext import commands
 
+from exceptions import *
+
 
 class khaaliStats(commands.Cog):
   def __init__(self, bot, db_name='khaaliDiscord', logname='khaaliStats'):
@@ -16,8 +18,6 @@ class khaaliStats(commands.Cog):
 
   @commands.Cog.listener()
   async def on_ready(self):
-    for guild in self.bot.guilds: 
-      self.setup_guild(guild)
     print('Mmm lets track some spicy stats')
 
   @commands.Cog.listener()
@@ -32,7 +32,58 @@ class khaaliStats(commands.Cog):
   async def on_error(self, event, *args):
     pass
 
+  @commands.Cog.listener()
+  async def on_guild_join(self, guild):
+    def is_guild_owner_dm(m): return m.author == guild.owner and type(m) == discord.DMChannel
+    YES = ('y','yes','yup','yep'); NO = ('n','no','nup','nope') # TODO: Module for consts?
+    dm = guild.owner.dm_channel if guild.owner.dm_channel else guild.owner.create_dm()
+    if not self.db.exists_in_db(guild.id, 'Guild'):
+      new_guild = True
+      await dm.send(content=self.talk.first_join(guild.owner), embed=self.talk.channel_id_embed())
+    else:
+      new_guild = False
+      await dm.send(content=self.talk.rejoin(guild.owner))
+      stats = guild.get_channel(self.db.get_stats_channel_id(guild.id))
+      await dm.send('Is {0.mention} still the stats channel?'.format(stats))
+    while True:
+      try: await msg = self.bot.wait_for('message', check=is_guild_owner_dm, timeout=30.0)
+      except asyncio.TimeoutError: await dm.send('Timed out. Bruh I can\'t do stats if I can\'t speak')
+      else:
+        txt = msg.content.strip().lower() 
+        if txt in YES: 
+          break
+        elif txt in NO: 
+          await dm.send('Please send the new stats channel ID', embed=self.talk.channel_id_embed())
+        else:
+          channel = guild.get_channel(txt)
+          if channel:
+            if self.db.update_stats_channel(guild.id, channel.id):
+              await dm.send('Stats channel updated to {0.mention}'.format(channel))
+            stats = channel
+            break
+          else: await dm.send('Some error occurred. Please try again.')
+    self.setup_guild(guild) # TODO Here
+    if new_guild:
+      data = {
+        name: guild.name,
+        discord_id: guild.id,
+        owner_id: guild.owner_id,
+        stats_chan_id: stats.id,
+        created_at: guild.created_at
+      }
+      self.db.insert('Guild', data)
+    self.db.update_guild_data('Member', guild.id, guild.members)
+    self.db.update_guild_data('Role', guild.id, guild.roles)
+    self.db.update_guild_data('Channel', guild.id, guild.channels)
+    self.db.update_guild_data('Webhook', guild.id, guild.webhooks) # Requires `manage_webhooks`
+    await stats.send('Here are some spicy stats',embed=self.talk.get_stats_by_guild(guild.id, self.db))
 
+  @commands.Cog.listener()
+  async def on_guild_remove(self, guild):
+    pass
+
+
+  ''' Message ops '''
 
   @commands.Cog.listener()
   async def on_raw_message_delete(self, payload):
@@ -67,6 +118,7 @@ class khaaliStats(commands.Cog):
     pass
 
 
+  ''' Member ops '''
 
   @commands.Cog.listener()
   async def on_member_join(self, mem):
@@ -85,6 +137,7 @@ class khaaliStats(commands.Cog):
     pass
 
 
+  ''' Role ops '''
 
   @commands.Cog.listener()
   async def on_guild_role_create(self, role):
@@ -99,6 +152,7 @@ class khaaliStats(commands.Cog):
     pass
 
 
+  ''' Channel ops '''
 
   @commands.Cog.listener()
   async def on_guild_channel_create(self, channel):
@@ -113,6 +167,7 @@ class khaaliStats(commands.Cog):
     pass
 
 
+  ''' Guild updates '''
 
   @commands.Cog.listener()
   async def on_guild_update(self, before, after):
@@ -122,9 +177,9 @@ class khaaliStats(commands.Cog):
   async def on_webhooks_update(self, channel):
     pass
 
-  @commands.Cog.listener()
-  async def on_guild_integrations_update(self, guild):
-    pass
+  # @commands.Cog.listener()
+  # async def on_guild_integrations_update(self, guild):
+  #   pass
 
 
 
@@ -162,20 +217,67 @@ class khaaliStats(commands.Cog):
       perms: [],
       created: date
     }
+    [Collection] webhooks: {
+
+    }
+    [Collection] integrations: {
+
+    }
     [Collection] guilds: {
       name: str,
-      id: int,
+      discord_id: int,
       owner_id: int,
       stats_chan_id: int,
       members: [],
       channels: [],
-      roles: []
+      roles: [],
+      webhooks: [],
+      integrations: []
     }'''
     def __init__(self, db_name):
       self.connection = None
-      try: from pymongo import MongoClient()
+      try: from pymongo import MongoClient
       except ImportError: print('No pyMongo!')
       else: self.connection = MongoClient()[db_name]
+      self.collections = {
+        'Member': self.connection.members,
+        'Channel': self.connection.channels,
+        'Role': self.connection.roles,
+        'Webhook': self.connection.webhooks,
+        'Integration': self.connection.webhooks,
+        'Guild': self.connection.guilds
+      }
+
+    # coll: Member | Channel | Role | Webhook | Integration | Guild
+    def exists_in_db(self, id, coll):
+      res = None
+      if coll in self.collections.keys(): res = self.collections[coll].find({'discord_id': id})
+      else: raise InvalidCollection(coll)
+      return True if res else False
+
+    def get_stats_channel_id(self, guild_id):
+      res = self.collections['Guild'].find({'discord_id': guild_id})
+      # Check if ID exists
+      return res.stats_chan_id
+
+    def update_stats_channel_id(self, guild_id, channel_id): 
+      self.collections['Guild'].find_one_and_update(
+        {'discord_id': guild_id}, 
+        {'stats_chan_id': channel_id}
+      )
+    
+    def update_guild_data(coll, guild_id, data):
+      if not coll in self.collections.keys(): raise InvalidCollection(coll)
+      for elem in data:
+        if not self.exists_in_db(elem.id,coll):
+          pass # Insert new doc
+        else:
+          pass # Update doc if required
+    
+    def insert(self, coll, doc):
+      # Check if already exists
+      if coll in self.collections.keys(): self.collections[coll].insert(doc)
+      else: raise InvalidCollection(coll)
 
   class Messages():
     def __init__(self):
@@ -187,10 +289,22 @@ class khaaliStats(commands.Cog):
 
     def channel_id_embed(self):
       em = discord.Embed()
-      # em.set_image(url='https://khaalidimaag.io/discord/khaaliStats/channel_id.gif') # NOTE: Link not active
+      # em.set_image(url='https://khaalidimaag.io/discord/khaaliStats/channel_id.gif')
       em.set_footer(text=':point_up_2: Send the channel ID fam')  
       em.set_author(name='khaaliStats',url='https://khaalidimaag.io/discord/khaaliStats')
       return em
+
+    def first_join(self, owner):
+      pass
+
+    def rejoin(self, owner):
+      pass
+    
+    ''' category default: (all) = int(1111,10) = 15
+      b3.b2.b1.b0 = webhooks.roles.channels.members
+    '''
+    def get_stats_by_guild(self, guild_id, db, category=15):
+      pass
 
   class Logs():
     def __init__(self, logname):
@@ -284,12 +398,8 @@ class khaaliStats(commands.Cog):
     return em
 
 
-  ''' category: int(b3.b2.b1.b0,10)
-    b0: members
-    b1: channels
-    b2: roles
-    b3: projects
-    default: (all) = int(1111,10) = 15
+  ''' category default: (all) = int(1111,10) = 15
+    b3.b2.b1.b0 = webhooks.roles.channels.members
   '''
   async def send_stats(channel, category=15):
     em = discord.Embed(
