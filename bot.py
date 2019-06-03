@@ -5,9 +5,9 @@ import pprint
 import discord
 from discord.ext import commands
 
-from cogs.reply import setup as reply_cog
+# from cogs.reply import setup as reply_cog
 from cogs.stats import setup as stats_cog
-from cogs.scrum import setup as scrum_cog
+# from cogs.scrum import setup as scrum_cog
 
 def get_prefix(bot, msg):
   prefixes = ['?!', 'bot ', '>']
@@ -25,6 +25,7 @@ async def on_ready():
   await bot.change_presence(activity=act)
   print('What is life?')
 
+@bot.event
 async def on_message(msg):
   ctx = await bot.get_context(msg)
   if ctx.command: ctx.invoke(ctx.command)

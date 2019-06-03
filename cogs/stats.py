@@ -62,7 +62,8 @@ class khaaliStats(commands.Cog):
             stats = channel
             break
           else: await dm.send('Some error occurred. Please try again.')
-    self.setup_guild(guild) # TODO Here
+    
+    # Create stats channel instead?
     if new_guild:
       data = {
         name: guild.name,
@@ -190,50 +191,6 @@ class khaaliStats(commands.Cog):
 
 
   class Database():
-    ''' Schema for `khaaliDiscord`
-    [Collection] members: {
-      name: str,
-      handle: str,
-      nick: str,
-      created: date,
-      joined_first: date,
-      left: date,
-      rejoined: date,
-      roles: [],
-      bot: boolean
-    }
-    [Collection] channels: {
-      name: str,
-      id: int,
-      created: date,
-      guild_id: int,
-      private: boolean,
-      voice: boolean
-    }
-    [Collection] roles: {
-      name: str,
-      purpose: str,
-      value: int,
-      perms: [],
-      created: date
-    }
-    [Collection] webhooks: {
-
-    }
-    [Collection] integrations: {
-
-    }
-    [Collection] guilds: {
-      name: str,
-      discord_id: int,
-      owner_id: int,
-      stats_chan_id: int,
-      members: [],
-      channels: [],
-      roles: [],
-      webhooks: [],
-      integrations: []
-    }'''
     def __init__(self, db_name):
       self.connection = None
       try: from pymongo import MongoClient
@@ -244,11 +201,16 @@ class khaaliStats(commands.Cog):
         'Channel': self.connection.channels,
         'Role': self.connection.roles,
         'Webhook': self.connection.webhooks,
-        'Integration': self.connection.webhooks,
         'Guild': self.connection.guilds
       }
+      self.mongofy = {
+        'Member': self.mongofy_member,
+        'Channel': self.mongofy_channel,
+        'Role': self.mongofy_role,
+        'Webhook': self.mongofy_webhook,
+        'Guild': self.mongofy_guild
+      }
 
-    # coll: Member | Channel | Role | Webhook | Integration | Guild
     def exists_in_db(self, id, coll):
       res = None
       if coll in self.collections.keys(): res = self.collections[coll].find({'discord_id': id})
@@ -269,15 +231,126 @@ class khaaliStats(commands.Cog):
     def update_guild_data(coll, guild_id, data):
       if not coll in self.collections.keys(): raise InvalidCollection(coll)
       for elem in data:
-        if not self.exists_in_db(elem.id,coll):
-          pass # Insert new doc
+        if not self.exists_in_db(elem.id,coll): self.collections[coll].insert_one(self.mongofy[coll](elem))
         else:
-          pass # Update doc if required
-    
+          res = self.collections[coll].find('discord_id': elem.id)
+          curr = self.mongofy[coll](elem)
+          if self.differs(res,curr): 
+            self.collections[coll].find_one_and_update(res, curr) # May have to change curr
+
+
     def insert(self, coll, doc):
       # Check if already exists
       if coll in self.collections.keys(): self.collections[coll].insert(doc)
       else: raise InvalidCollection(coll)
+    
+    def mongofy_member(self, member):
+      return {
+        'discord_id': member.id,
+        'name': member.name, # Check if same as handle
+        'handle': member.discriminator,
+        'created': member.created_at,
+        'bot': member.bot,
+        'nick': member.nick,
+        'guilds': {
+          member.guild.id: {
+            'nick': member.nick,
+            'roles': [role.id for role in member.roles],
+            'joined': datetime.datetime.now()
+          }
+        }
+      }
+
+    def mongofy_channel(self, channel):
+      return {
+        name: channel.name,
+        discord_id: channel.id,
+        created: channel.created_at,
+        guild_id: channel.guild.id,
+        voice: type(channel) == discord.VoiceChannel,
+        category: channel.category.name if channel.category else None
+      }
+
+    def mongofy_role(self, role):
+      return {
+        name: role.name,
+        discord_id: role.id,
+        value: role.permissions.value,
+        created: role.created_at,
+        guild_id: role.guild.id,
+        managed: role.managed,
+        perms: self.get_perms(role)
+      }
+
+    def get_perms(self, role):
+      return {
+        'general': {
+          'create_instant_invite': role.create_instant_invite,
+          'kick_members': role.kick_members,
+          'ban_members': role.ban_members,
+          'administrator': role.administrator,
+          'manage_channels': role.manage_channels,
+          'manage_guild': role.manage_guild,
+          'view_audit_log': role.view_audit_log,
+          'stream': role.stream,
+          'change_nickname': role.change_nickname,
+          'manage_nicknames': role.manage_nicknames,
+          'manage_roles': role.manage_roles,
+          'manage_webhooks': role.manage_webhooks,
+          'manage_emojis': role.manage_emojis
+        },
+        'text': {
+          'read_messages': role.read_messages,
+          'send_messages': role.send_messages,
+          'send_tts_messages': role.send_tts_messages,
+          'manage_messages': role.manage_messages,
+          'embed_links': role.embed_links,
+          'attach_files': role.attach_files,
+          'read_message_history': role.read_message_history,
+          'mention_everyone': role.mention_everyone,
+          'add_reactions': role.add_reactions,
+          'external_emojis': role.external_emojis
+        },
+        'voice': {
+          'connect': role.connect,
+          'speak': role.speak,
+          'mute_members': role.mute_members,
+          'deafen_members': role.deafen_members,
+          'move_members': role.move_members,
+          'priority_speaker': role.priority_speaker,
+          'use_voice_activation': role.use_voice_activation
+        }
+      }
+
+    def mongofy_webhook(self, webhook):
+      return {
+        discord_id: webhook.id,
+        name: webhook.name,
+        token: webhook.token,
+        url: webhook.url,
+        created: webhook.created_at,
+        guild_id: webhook.guild_id
+      }
+
+    def mongofy_guild(self, guild, stats=None):
+      return {
+        name: guild.name,
+        discord_id: guild.id,
+        owner_id: guild.owner_id,
+        created: guild.created_at,
+        features: guild.features,
+        stats_chan_id: stats,
+        members: [],
+        channels: [],
+        roles: [],
+        webhooks: []
+      }
+
+    def differs(self, doc1, doc2):
+      for key in doc1.keys():
+        if key.startswith('_'): continue
+        if doc1.get(key) != doc2.get(key) return True
+      return False
 
   class Messages():
     def __init__(self):
@@ -304,7 +377,16 @@ class khaaliStats(commands.Cog):
       b3.b2.b1.b0 = webhooks.roles.channels.members
     '''
     def get_stats_by_guild(self, guild_id, db, category=15):
-      pass
+      em = discord.Embed()
+      if category & 1: # Members
+        pass
+      if category & 2: # Channels
+        pass
+      if category & 4: # Roles
+        pass
+      if category & 8: # Webhooks
+        pass
+      return em
 
   class Logs():
     def __init__(self, logname):
@@ -313,6 +395,9 @@ class khaaliStats(commands.Cog):
 
   class Commands():
     def __init__(self, bot):
+      pass
+
+    def parse_commnads(self, txt):
       pass
 
     @commands.command()
@@ -334,83 +419,6 @@ class khaaliStats(commands.Cog):
     @commands.command()
     async def all(self, ctx, *args):
       pass
-  
-
-
-  def setup_guild(self, guild):
-    query = self.db.guilds.find({'id':guild.id})
-    current = {
-      'name': guild.name,
-      'id': guild.id,
-      'owner_id': guild.owner_id
-    }
-    if query:
-      if guild.get_channel(query.stats_chan_id): current.stats_chan_id = query.stats_chan_id
-      else: current.stats_chan_id = self.get_stats_chan(guild,first=False)
-      if current != query: self.db.guilds.update_one(query,current)
-    else:
-      current.stats_chan_id = self.get_stats_chan(guild)
-      self.db.guilds.insert_one(current)
-    self.update_guild_in_db(guild)
-    self.send_stats(guild.get_channel(current.stats_chan_id))
-    
-  def update_guild_in_db(self,guild):
-    for member in guild.members:
-      # Add to db
-      pass
-    for role in guild.roles:
-      # Add to db
-      pass
-    for channel in guild.channels:
-      # Add to db
-      pass
-    pass
-
-  async def get_stats_chan(self, guild, first=True):
-    owner = guild.get_member(guild.owner_id)
-    dm = await owner.create_dm() if not owner.dm_channel else owner.dm_channel
-    def check(m): return m.channel.id == dm.id and m.author == owner_id
-    await dm.send(content=self.welcome_message(first), embed=self.channel_id_embed())
-    while True:
-      try: msg = await self.bot.wait_for('message', check=check, timeout=60.0)
-      except asyncio.TimeoutError: await dm.send('Dont leave me hanging buddy!')
-      else: 
-        stats = guild.get_channel(msg.content)
-        if not stats: 
-          await dm.send('Channel not found in {0.name}. Please send the ID again.'.format(guild))
-          continue
-        if type(stats) != discord.TextChannel:
-          await dm.send('Channel is not a Text Channel. How am I supposed to send stats?')
-          continue
-        await dm.send('Head on over to {0.mention} for the current stats of {1.name}'.format(stats,guild))
-        return stats.id
-
-
-  def welcome_message(self, first):
-    if first: return 'You made a wise choice! Let\'s do some stats!'
-    else: return 'Thanks for adding me back fam!'
-
-  def channel_id_embed(self):
-    em = discord.Embed()
-    # em.set_image(url='https://khaalidimaag.io/discord/khaaliStats/channel_id.gif') # NOTE: Link not active
-    em.set_footer(text=':point_up_2: Send the channel ID fam')  
-    em.set_author(name='khaaliStats',url='https://khaalidimaag.io/discord/khaaliStats')
-    return em
-
-
-  ''' category default: (all) = int(1111,10) = 15
-    b3.b2.b1.b0 = webhooks.roles.channels.members
-  '''
-  async def send_stats(channel, category=15):
-    em = discord.Embed(
-      title='Current stats of {0.name}'.format(channel.guild),
-      timestamp=datetime.datetime.now(),
-      color=0xFFFFFF
-    )
-    # TODO Add data lol
-    em.set_author(name='khaaliStats',url='https://khaalidimaag.io/discord/khaaliStats')
-    await channel.send(embed=em)
-
 
 def setup(bot): bot.add_cog(khaaliStats(bot))
 

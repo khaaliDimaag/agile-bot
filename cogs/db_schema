@@ -1,3 +1,57 @@
+[DB] `khaaliDiscord`
+[Collection] members: {
+  discord_id: int,
+  name: str,
+  handle: str,
+  created: date,
+  bot: boolean,
+  guilds: {
+    guild_id: {
+      nick: str,
+      roles: [],
+      joined: date,
+      left: date
+    }
+  }
+}
+[Collection] channels: {
+  name: str,
+  discord_id: int,
+  created: date,
+  guild_id: int,
+  voice: boolean,
+  category: int
+}
+[Collection] roles: {
+  name: str,
+  discord_id: int,
+  value: int,
+  perms: [],
+  created: date,
+  guild_id: int,
+  managed: boolean
+}
+[Collection] webhooks: {
+  discord_id: int,
+  name: str,
+  token: str,
+  url: str,
+  created: date,
+  guild_id: int
+}
+[Collection] guilds: {
+  name: str,
+  discord_id: int,
+  owner_id: int,
+  created: date,
+  features: [],
+  stats_chan_id: int,
+  members: [],
+  channels: [],
+  roles: [],
+  webhooks: []
+}
+
 [DB] khaaliProjects:
 [Collection] projects: {
   name: str,
