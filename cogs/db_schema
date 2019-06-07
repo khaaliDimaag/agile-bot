@@ -46,10 +46,10 @@
   created: date,
   features: [],
   stats_chan_id: int,
-  members: [],
-  channels: [],
-  roles: [],
-  webhooks: []
+  Member: [],
+  Channel: [],
+  Role: [],
+  Webhook: []
 }
 
 [DB] khaaliProjects:
