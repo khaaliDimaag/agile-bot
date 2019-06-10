@@ -1,3 +1,5 @@
+''' https://discordapp.com/oauth2/authorize?client_id=578939781254217728&scope=bot&permissions=8 '''
+
 import os
 import pprint
 # TODO import logging 
