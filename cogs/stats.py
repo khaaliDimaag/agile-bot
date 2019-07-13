@@ -49,7 +49,7 @@ class khaaliStats(commands.Cog):
         else:
           txt = msg.content.strip().lower()
           if txt in YES: 
-            stats = self.create_stats_channel(guild)
+            stats = await self.create_stats_channel(guild)
             break
           elif txt in NO:
             create_stats = False
@@ -72,7 +72,7 @@ class khaaliStats(commands.Cog):
         else:
           txt = msg.content.strip().lower() 
           if txt in YES: 
-            if create_stats: stats = self.create_stats_channel(guild)
+            if create_stats: stats = await self.create_stats_channel(guild)
             break
           elif txt in NO:
             create_stats = False
@@ -156,10 +156,12 @@ class khaaliStats(commands.Cog):
 
   @commands.Cog.listener()
   async def on_member_join(self, mem):
+    print(mem.guild)
     pass
 
   @commands.Cog.listener()
   async def on_member_remove(self, mem):
+    print(mem.guild)
     pass
 
   @commands.Cog.listener()
@@ -270,7 +272,36 @@ class khaaliStats(commands.Cog):
       # Check success?
     
     def new_guild(self, guild): self.collections['Guild'].insert_one(self.mongofy_guild(guild))
-      
+    
+    ''' 
+      activity: b3.b2.b1.b0 = join.remove.ban.unban 
+      Returns: 
+    '''
+    def member_ops(self, member, activity):
+      if activity & 1:
+        pass # Unban
+      elif activity & 2:
+        pass # Banned
+      elif activity & 4:
+        self.collections['Member'].find_one_and_update(
+          {'discord_id': member.id},
+          self.updatify({'guilds':{str(member.guild.id):{'left':datetime.datetime.now()}}})
+          # Invalid, will remove other guilds
+        )
+      elif activity & 8:
+        if self.exists_in_db(member.id,'Member'): 
+          curr = self.collections['Member'].find_one({'discord_id': member.id})
+          if str(member.guild.id) in curr['guilds']: 
+            self.collections['Member'].find_one_and_update(
+              {'discord_id': member.id},
+              self.updatify(self.mongofy_member(member,just_guild=True))
+              # Invalid, will remove other guilds
+            )
+          else: curr['guilds'].update(self.mongofy_member(member,just_guild=True))
+        else: 
+          res = self.collections['Member'].insert_one(self.mongofy_member(member))
+          
+
     def update_guild_data(self, coll, guild_id, data):
       if not coll in self.collections.keys(): raise InvalidCollection(coll)
       guild = self.collections['Guild'].find_one({'discord_id':guild_id})
@@ -292,22 +323,25 @@ class khaaliStats(commands.Cog):
         else: update.update({coll:[obj]})
       self.collections['Guild'].find_one_and_update(guild,self.updatify(update))
 
-    def mongofy_member(self, member):
-      return {
-        'discord_id': member.id,
-        'name': member.name, # Check if same as handle
-        'handle': member.discriminator,
-        'created': member.created_at,
-        'bot': member.bot,
-        'nick': member.nick,
-        'guilds': {
+    def mongofy_member(self, member, just_guild=False):
+      if just_guild:
+        return {
           str(member.guild.id): {
             'nick': member.nick,
             'roles': [role.id for role in member.roles],
-            'joined': datetime.datetime.now()
+            'joined': member.joined_at if member.joined_at else datetime.datetime.now()
           }
         }
-      }
+      else:
+        return {
+          'discord_id': member.id,
+          'name': member.name, # Check if same as handle
+          'handle': member.discriminator,
+          'created': member.created_at,
+          'bot': member.bot,
+          'nick': member.nick,
+          'guilds': self.mongofy_member(member,just_guild=True)
+        }
 
     def mongofy_channel(self, channel):
       return {
@@ -408,7 +442,7 @@ class khaaliStats(commands.Cog):
     def channel_id_embed(self):
       em = discord.Embed()
       # em.set_image(url='https://khaalidimaag.io/discord/khaaliStats/channel_id.gif')
-      em.set_footer(text=':point_up_2: Send the channel ID fam')  
+      em.set_footer(text='Send the channel ID fam')  
       em.set_author(name='khaaliStats',url='https://khaalidimaag.io/discord/khaaliStats')
       return em
 
